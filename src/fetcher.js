@@ -80,9 +80,8 @@ async function processFeed(feed) {
       const ts = pubDate ? new Date(pubDate).getTime() : Date.now();
       const imgUrl = extractImage(item);
 
-      const textoCompleto = `${titulo} ${resumen}`;
-      const ciudad = detectCity(textoCompleto, feed.ciudad_base);
-      const categoria = detectCategory(textoCompleto);
+      const ciudad = detectCity(titulo, resumen, feed.ciudad_base);
+      const categoria = detectCategory(titulo, resumen);
 
       noticias.push({
         id: makeId(feed.id, link),
