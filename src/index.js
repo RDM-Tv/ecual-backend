@@ -31,8 +31,8 @@ app.get('/api/noticias', async (req, res) => {
 
     let query = supabase
       .from('noticias')
-      .select('*')
-      .order('publicado_en', { ascending: false })
+      .select('*', { count: 'exact' })
+      .order('publicado_en', { ascending: false })  // MÃS RECIENTE PRIMERO
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
     // Filtro por ciudad
