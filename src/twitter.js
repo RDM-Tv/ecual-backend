@@ -1,5 +1,5 @@
-// â”€â”€â”€ MÃ“DULO TWITTER/X VÃA NITTER RSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Lee cuentas de X gratis usando instancias pÃºblicas de Nitter
+// ─── MÓDULO TWITTER/X VÍA NITTER RSS ─────────────────────────────────────────
+// Lee cuentas de X gratis usando instancias públicas de Nitter
 
 const Parser = require('rss-parser');
 const { createClient } = require('@supabase/supabase-js');
@@ -17,7 +17,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// â”€â”€â”€ INSTANCIAS NITTER (se prueban en orden hasta encontrar una que funcione) â”€
+// ─── INSTANCIAS NITTER (se prueban en orden hasta encontrar una que funcione) ─
 const NITTER_INSTANCES = [
   'nitter.privacydev.net',
   'nitter.poast.org',
@@ -28,48 +28,73 @@ const NITTER_INSTANCES = [
   'nitter.tiekoetter.com',
 ];
 
-// â”€â”€â”€ CUENTAS DE X A MONITOREAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CUENTAS DE X A MONITOREAR ────────────────────────────────────────────────
 const TWITTER_ACCOUNTS = [
   // Medios nacionales
   { user: 'eluniversocom',    name: 'El Universo',     ciudad_base: null },
   { user: 'elcomerciocom',    name: 'El Comercio',     ciudad_base: 'quito' },
   { user: 'Primicias_ec',     name: 'Primicias',       ciudad_base: null },
   { user: 'ecuavisa',         name: 'Ecuavisa',        ciudad_base: 'guayaquil' },
-  { user: 'TCTelevision',     name: 'TC TelevisiÃ³n',   ciudad_base: 'guayaquil' },
+  { user: 'TCTelevision',     name: 'TC Televisión',   ciudad_base: 'guayaquil' },
   { user: 'Teleamazonas',     name: 'Teleamazonas',    ciudad_base: 'quito' },
   { user: 'LaHoraEcuador',    name: 'La Hora',         ciudad_base: null },
-  // Alertas y noticias rÃ¡pidas
+  // Alertas y noticias rápidas
   { user: 'AlertaEcuador',    name: 'Alerta Ecuador',  ciudad_base: null },
   { user: 'MinutoMedio',      name: 'Minuto Medio',    ciudad_base: null },
   { user: 'La_Posta_Ec',      name: 'La Posta',        ciudad_base: null },
+  { user: 'LaPosta_Ecu',      name: 'La Posta Ecu',    ciudad_base: null },
+  { user: 'ladataec',         name: 'La Data Ec',      ciudad_base: null },
+  { user: 'lahistoriaec',     name: 'La Historia Ec',  ciudad_base: null },
   // Guayaquil
   { user: 'CupoTotal',        name: 'Cupo Total',      ciudad_base: 'guayaquil' },
   { user: 'ExpresoBuenasManos', name: 'Expreso',       ciudad_base: 'guayaquil' },
   // Quito
   { user: 'Metro_Ecuador',    name: 'Metro Ecuador',   ciudad_base: 'quito' },
-  // ManabÃ­ / Manta
+  // Manabí / Manta
   { user: 'ElDiarioEc',       name: 'El Diario',       ciudad_base: 'portoviejo' },
+  { user: 'manta_alcaldia',   name: 'Alcaldía Manta',  ciudad_base: 'manta' },
+  { user: 'oromartv',         name: 'Oromar TV',       ciudad_base: 'manta' },
+  { user: 'GoberManabi',      name: 'Gob. Manabí',     ciudad_base: 'portoviejo' },
+  { user: 'HRZManta',         name: 'Hospital Manta',  ciudad_base: 'manta' },
+  { user: 'InformatManabi',   name: 'Informat Manabí', ciudad_base: 'portoviejo' },
+  { user: 'UPortoviejo',      name: 'U. Portoviejo',   ciudad_base: 'portoviejo' },
+  // Instituciones nacionales
+  { user: 'PoliciaEcuador',   name: 'Policía Ecuador', ciudad_base: null },
+  { user: 'AnderssonBoscan',  name: 'Andersson Boscán',ciudad_base: null },
+  { user: 'Presidencia_Ec',   name: 'Presidencia EC',  ciudad_base: null },
+  { user: 'BiessEcuador',     name: 'BIESS',           ciudad_base: null },
+  { user: 'RegistroCivilec',  name: 'Registro Civil',  ciudad_base: null },
+  { user: 'cnegobec',         name: 'CNE Ecuador',     ciudad_base: null },
+  { user: 'BancoCentral_Ec',  name: 'Banco Central',   ciudad_base: null },
+  { user: 'superbancosEC',    name: 'Superbancos',     ciudad_base: null },
+  { user: 'IESSec',           name: 'IESS',            ciudad_base: null },
 ];
 
-// â”€â”€â”€ BUSCAR INSTANCIA NITTER FUNCIONAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── BUSCAR INSTANCIA NITTER FUNCIONAL (con caché) ──────────────────────────
+let lastWorkingInstance = null;
+
 async function findWorkingInstance(username) {
-  for (const instance of NITTER_INSTANCES) {
+  // Probar primero la última instancia que funcionó
+  const ordered = lastWorkingInstance
+    ? [lastWorkingInstance, ...NITTER_INSTANCES.filter(i => i !== lastWorkingInstance)]
+    : NITTER_INSTANCES;
+
+  for (const instance of ordered) {
     try {
       const url = `https://${instance}/${username}/rss`;
       const feed = await parser.parseURL(url);
       if (feed && feed.items && feed.items.length > 0) {
-        console.log(`  âœ… Nitter OK: ${instance} para @${username}`);
+        lastWorkingInstance = instance;
         return { instance, feed };
       }
     } catch (e) {
-      // Intentar con la siguiente
       continue;
     }
   }
   return null;
 }
 
-// â”€â”€â”€ LIMPIAR TEXTO DE TWEET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── LIMPIAR TEXTO DE TWEET ───────────────────────────────────────────────────
 function cleanTweet(text = '') {
   return text
     .replace(/<[^>]+>/g, ' ')   // quitar HTML
@@ -80,7 +105,7 @@ function cleanTweet(text = '') {
     .slice(0, 400);
 }
 
-// â”€â”€â”€ HASH SIMPLE PARA ID ÃšNICO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── HASH SIMPLE PARA ID ÚNICO ────────────────────────────────────────────────
 function makeId(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -90,7 +115,7 @@ function makeId(str) {
   return 'tw_' + Math.abs(hash).toString(36);
 }
 
-// â”€â”€â”€ PROCESAR UNA CUENTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PROCESAR UNA CUENTA ─────────────────────────────────────────────────────
 async function processAccount(account) {
   const result = { user: account.user, ok: false, count: 0 };
 
@@ -99,7 +124,7 @@ async function processAccount(account) {
     const found = await findWorkingInstance(account.user);
 
     if (!found) {
-      console.log(`  âš ï¸  @${account.user}: ninguna instancia Nitter respondiÃ³`);
+      console.log(`  ⚠️  @${account.user}: ninguna instancia Nitter respondió`);
       return result;
     }
 
@@ -114,7 +139,7 @@ async function processAccount(account) {
       const pubDate = item.pubDate || item.isoDate;
       const ts = pubDate ? new Date(pubDate).getTime() : Date.now();
 
-      // Solo tweets de las Ãºltimas 24 horas
+      // Solo tweets de las últimas 24 horas
       if (Date.now() - ts > 24 * 60 * 60 * 1000) continue;
 
       const ciudad = detectCity(titulo, '', account.ciudad_base);
@@ -123,7 +148,7 @@ async function processAccount(account) {
       noticias.push({
         id: makeId(link + ts),
         titulo,
-        resumen: titulo, // los tweets son cortos, tÃ­tulo = resumen
+        resumen: titulo, // los tweets son cortos, título = resumen
         url: link,
         fuente_id: `twitter_${account.user.toLowerCase()}`,
         fuente_nombre: account.name,
@@ -147,35 +172,35 @@ async function processAccount(account) {
 
     result.ok = true;
     result.count = noticias.length;
-    console.log(`  âœ… @${account.user}: ${noticias.length} tweets guardados`);
+    console.log(`  ✅ @${account.user}: ${noticias.length} tweets guardados`);
 
   } catch (err) {
-    console.error(`  âŒ @${account.user}: ${err.message}`);
+    console.error(`  ❌ @${account.user}: ${err.message}`);
   }
 
   return result;
 }
 
-// â”€â”€â”€ FUNCIÃ“N PRINCIPAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function fetchAllTwitter() {
-  console.log('\nðŸ¦ Twitter/X via Nitter');
-  console.log('â”€'.repeat(40));
+  console.log('\n🐦 Twitter/X via Nitter');
+  console.log('─'.repeat(40));
 
   const results = [];
 
-  // Procesar de 3 en 3 para no sobrecargar Nitter
-  const chunkSize = 3;
+  // Procesar de 5 en 5 para no sobrecargar Nitter pero ser más rápido
+  const chunkSize = 5;
   for (let i = 0; i < TWITTER_ACCOUNTS.length; i += chunkSize) {
     const chunk = TWITTER_ACCOUNTS.slice(i, i + chunkSize);
     const chunkResults = await Promise.allSettled(chunk.map(processAccount));
     results.push(...chunkResults.map(r => r.value || {}));
-    // Pausa entre chunks para no bloquear las instancias
-    await new Promise(r => setTimeout(r, 2000));
+    // Pausa breve entre chunks
+    await new Promise(r => setTimeout(r, 1500));
   }
 
   const ok = results.filter(r => r.ok).length;
   const total = results.reduce((s, r) => s + (r.count || 0), 0);
-  console.log(`ðŸ¦ Twitter: ${ok}/${TWITTER_ACCOUNTS.length} cuentas Â· ${total} tweets`);
+  console.log(`🐦 Twitter: ${ok}/${TWITTER_ACCOUNTS.length} cuentas · ${total} tweets`);
 
   return { ok, total };
 }
