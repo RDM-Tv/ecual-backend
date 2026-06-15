@@ -4,7 +4,7 @@ const Parser = require('rss-parser');
 const { createClient } = require('@supabase/supabase-js');
 const { FEEDS } = require('./feeds.config');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
-const { fetchAllTwitter } = require('./twitter');
+const { fetchAllYoutube } = require('./youtube');
 
 const parser = new Parser({
   timeout: 12000,
@@ -114,7 +114,7 @@ async function fetchAll() {
   console.log('━'.repeat(50));
 
   const feedsActivos = FEEDS.filter(f => f.activo);
-  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 🐦 Twitter: 14 cuentas\n`);
+  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 📺 YouTube: 8 canales\n`);
 
   // ── 1. Feeds RSS ────────────────────────────────────────────────
   const rssResults = [];
@@ -125,8 +125,8 @@ async function fetchAll() {
     rssResults.push(...res.map(r => r.value || r.reason));
   }
 
-  // ── 2. Twitter vía Nitter ───────────────────────────────────────
-  const twitterResult = await fetchAllTwitter();
+  // ── 2. YouTube RSS ───────────────────────────────────────────────
+  const youtubeResult = await fetchAllYoutube();
 
   // ── 3. Limpieza ─────────────────────────────────────────────────
   await cleanOldNews();
@@ -136,10 +136,10 @@ async function fetchAll() {
 
   console.log('\n' + '━'.repeat(50));
   console.log(`📰 RSS: ${okRss}/${feedsActivos.length} fuentes · ${totalRss} noticias`);
-  console.log(`🐦 Twitter: ${twitterResult.total} tweets`);
-  console.log(`📊 Total: ${totalRss + twitterResult.total} items procesados`);
+  console.log(`📺 YouTube: ${youtubeResult.total} videos`);
+  console.log(`📊 Total: ${totalRss + youtubeResult.total} items procesados`);
 
-  return { okRss, totalRss, twitterResult };
+  return { okRss, totalRss, youtubeResult };
 }
 
 if (require.main === module) {
