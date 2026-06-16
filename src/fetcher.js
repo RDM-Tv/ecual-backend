@@ -114,7 +114,7 @@ async function fetchAll() {
   console.log('━'.repeat(50));
 
   const feedsActivos = FEEDS.filter(f => f.activo);
-  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 📺 YouTube: 8 canales\n`);
+  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 📺 YouTube: 13 canales\n`);
 
   // ── 1. Feeds RSS ────────────────────────────────────────────────
   const rssResults = [];
