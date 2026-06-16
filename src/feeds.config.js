@@ -133,6 +133,14 @@ const CAT_KEYWORDS = {
     'inteligencia artificial', 'ia', 'ciberseguridad', 'hackeo', 'innovación',
     'software', 'red 5g', 'telecomunicaciones',
   ],
+  farandula: [
+    'farándula', 'farandula', 'famoso', 'celebridad', 'chisme', 'escándalo',
+    'escandalo', 'novela', 'serie', 'película', 'pelicula', 'actor', 'actriz',
+    'cantante', 'artista', 'show', 'espectáculo', 'espectaculo', 'romance',
+    'boda', 'divorcio', 'embarazo', 'bebé', 'bebe', 'red carpet', 'alfombra roja',
+    'reality', 'telenovela', 'pareja', 'ruptura', 'instagram', 'influencer',
+    'shakira', 'taylor swift', 'bad bunny', 'karol g', 'maluma',
+  ],
 };
 
 module.exports = { FEEDS, CITY_KEYWORDS, CAT_KEYWORDS };
