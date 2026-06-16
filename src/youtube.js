@@ -21,16 +21,23 @@ const supabase = createClient(
 
 // ─── CANALES DE YOUTUBE A MONITOREAR ──────────────────────────────────────────
 const YOUTUBE_CHANNELS = [
-  // Medios tradicionales
-  { id: 'UCRUV3nUNSc-xpBrTwQOCQQg', name: 'Ecuavisa',       ciudad_base: 'guayaquil' },
-  { id: 'UCx6TdW_j_WKafftaMM-Ttzg', name: 'Ecuavisa Noticieros', ciudad_base: 'guayaquil' },
-  { id: 'UCCwRtme3lumNRQXMO2EvCvw', name: 'Teleamazonas',   ciudad_base: 'quito' },
-  { id: 'UCe6Gi8_PZp9gcEZb5hTCPdQ', name: 'Primicias',      ciudad_base: null },
-  { id: 'UCLwBAR1YA6bQRNVCLYOM6Sg', name: 'El Universo',    ciudad_base: null },
-  { id: 'UCfXVS_zw_XmAx8iIiia1IkA', name: 'Ecuador TV',     ciudad_base: null },
+  // Medios tradicionales nacionales
+  { id: 'UCRUV3nUNSc-xpBrTwQOCQQg', name: 'Ecuavisa',       ciudad_base: 'guayaquil', categoria_fija: null },
+  { id: 'UCx6TdW_j_WKafftaMM-Ttzg', name: 'Ecuavisa Noticieros', ciudad_base: 'guayaquil', categoria_fija: null },
+  { id: 'UCe7lqEt4OLqYbbyRIUSawuw', name: 'Teleamazonas',   ciudad_base: 'quito', categoria_fija: null },
+  { id: 'UCe6Gi8_PZp9gcEZb5hTCPdQ', name: 'Primicias',      ciudad_base: null, categoria_fija: null },
+  { id: 'UCLwBAR1YA6bQRNVCLYOM6Sg', name: 'El Universo',    ciudad_base: null, categoria_fija: null },
+  { id: 'UCfXVS_zw_XmAx8iIiia1IkA', name: 'Ecuador TV',     ciudad_base: null, categoria_fija: null },
+  { id: 'UCbJlOuKPXNgdSk4CjEgqvjA', name: 'RTS La Noticia', ciudad_base: 'guayaquil', categoria_fija: null },
   // Periodismo independiente / análisis
-  { id: 'UCLCCMz3exOqYc59IN0VOLlA', name: 'Andersson Boscán', ciudad_base: null },
-  { id: 'UCz8FnLDbCO0tFAMRM72cMkQ', name: 'La Posta',         ciudad_base: null },
+  { id: 'UCLCCMz3exOqYc59IN0VOLlA', name: 'Andersson Boscán', ciudad_base: null, categoria_fija: null },
+  { id: 'UCz8FnLDbCO0tFAMRM72cMkQ', name: 'La Posta',         ciudad_base: null, categoria_fija: null },
+  // Manabí / Manta
+  { id: 'UCBrdHJJ2IN3rDXE4JNUTBug', name: 'Noticias Oromar',  ciudad_base: 'manta', categoria_fija: null },
+  { id: 'UCzrQFCQLyDMAYctFrSS_mDQ', name: 'Sucre TV',         ciudad_base: 'portoviejo', categoria_fija: null },
+  { id: 'UCeMo1QNX3JI5m-7yuT8pHGA', name: 'Televisión Manabita', ciudad_base: 'portoviejo', categoria_fija: null },
+  // Farándula nacional / internacional
+  { id: 'UCdjivzgHadp1I3e-9Sv-hkw', name: 'El Gordo y La Flaca', ciudad_base: null, categoria_fija: 'farandula' },
 ];
 
 function makeId(str) {
@@ -79,8 +86,10 @@ async function processChannel(channel) {
 
       const imgUrl = extractThumbnail(item);
 
-      const ciudad = detectCity(titulo, resumen, channel.ciudad_base);
-      const categoria = detectCategory(titulo, resumen);
+      const ciudad = channel.categoria_fija === 'farandula'
+        ? 'nacional'
+        : detectCity(titulo, resumen, channel.ciudad_base);
+      const categoria = channel.categoria_fija || detectCategory(titulo, resumen);
 
       noticias.push({
         id: makeId(link),
