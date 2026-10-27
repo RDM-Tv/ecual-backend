@@ -89,6 +89,37 @@ app.get('/api/fuentes', async (req, res) => {
   res.json({ ok: true, fuentes: Object.values(fuentes) });
 });
 
+// GET /api/rss  — feed RSS de EcuaNews (para auto-publicar en Facebook, etc.)
+// Ej: /api/rss?ciudad=manta   |   /api/rss?categoria=seguridad
+app.get('/api/rss', async (req, res) => {
+  try {
+    const { ciudad, categoria } = req.query;
+    let query = supabase.from('noticias').select('*')
+      .order('publicado_en', { ascending: false }).limit(30);
+    if (ciudad && ciudad !== 'todas') query = query.eq('ciudad', ciudad);
+    if (categoria && categoria !== 'todas') query = query.eq('categoria', categoria);
+    const { data, error } = await query;
+    if (error) return res.status(500).send(error.message);
+    const x = t => String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const items = (data || []).map(n => `
+    <item>
+      <title>${x(n.titulo)}</title>
+      <link>${x(n.url)}</link>
+      <guid isPermaLink="false">${x(n.id)}</guid>
+      <pubDate>${new Date(n.publicado_en).toUTCString()}</pubDate>
+      <category>${x(n.ciudad_label)}</category>
+      <description>${x(n.resumen)}</description>
+    </item>`).join('');
+    res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>EcuaNews${ciudad ? ' — ' + x(ciudad) : ''}</title>
+  <link>https://rdm-tv.github.io/EcuaNews/</link>
+  <description>Noticias de Ecuador en tiempo real</description>${items}
+</channel></rss>`);
+  } catch (e) { res.status(500).send(e.message); }
+});
+
 // GET /api/health
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, version: '1.0.0', uptime: Math.floor(process.uptime()) });

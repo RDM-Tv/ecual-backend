@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { FEEDS } = require('./feeds.config');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
 const { fetchAllYoutube } = require('./youtube');
+const { postToTelegram } = require('./telegram');
 
 const parser = new Parser({
   timeout: 12000,
@@ -129,6 +130,8 @@ async function fetchAll() {
   const youtubeResult = await fetchAllYoutube();
 
   // ── 3. Limpieza ─────────────────────────────────────────────────
+  await postToTelegram().catch(e => console.error('Telegram:', e.message));
+
   await cleanOldNews();
 
   const okRss = rssResults.filter(r => r?.ok).length;
