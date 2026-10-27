@@ -12,7 +12,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const CHANNELS = {
-  todas: '',       // ej: '@ecuanews_ec'  ← recibe noticias de todo el país
+  todas: '',       // ej: '@ecuanews1'  ← recibe noticias de todo el país
   quito: '',       // ej: '@ecuanews_quito'
   guayaquil: '',
   manta: '',
