@@ -3,7 +3,7 @@ require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const { FEEDS } = require('./feeds.config');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
-const { fetchAllYoutube } = require('./youtube');
+const { fetchAllYoutube, YOUTUBE_CHANNELS } = require('./youtube');
 const { postToTelegram } = require('./telegram');
 
 const { fetchFeed } = require('./http');
@@ -114,7 +114,7 @@ async function fetchAll() {
   console.log('━'.repeat(50));
 
   const feedsActivos = FEEDS.filter(f => f.activo);
-  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 📺 YouTube: 13 canales\n`);
+  console.log(`📡 RSS: ${feedsActivos.length} fuentes | 📺 YouTube: ${YOUTUBE_CHANNELS.length} canales\n`);
 
   // ── 1. Feeds RSS ────────────────────────────────────────────────
   const rssResults = [];
