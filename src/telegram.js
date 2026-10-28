@@ -12,7 +12,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const CHANNELS = {
-  todas: '',       // ej: '@ecuanews1'  ← recibe noticias de todo el país
+  todas: '-1004359687429',  // canal Ecuanews (nacional)
   quito: '',       // ej: '@ecuanews_quito'
   guayaquil: '',
   manta: '',
