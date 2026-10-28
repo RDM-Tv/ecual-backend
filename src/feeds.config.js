@@ -1,19 +1,25 @@
+// Cada fuente intenta: 1) su RSS propio, 2) los RSS alternos (alt) y 3) como red
+// de seguridad Google News filtrado por ese sitio (siempre disponible, no bloquea servidores).
+const gnews = dominio =>
+  `https://news.google.com/rss/search?q=site:${dominio}+when:2d&hl=es-419&gl=EC&ceid=EC:es-419`;
+
 const FEEDS = [
   // ── NACIONALES ──────────────────────────────────────────────────────────────
-  { id:'eluniverso',   name:'El Universo',    url:'https://www.eluniverso.com/arc/outboundfeeds/rss/?outputType=xml', ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'elcomercio',   name:'El Comercio',    url:'https://www.elcomercio.com/feed',                                  ciudad_base:'quito',     tipo:'rss', activo:true },
-  { id:'primicias',    name:'Primicias',       url:'https://www.primicias.ec/feed/',                                   ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'lahora',       name:'La Hora',         url:'https://www.lahora.com.ec/feed/',                                  ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'expreso',      name:'Expreso',         url:'https://www.expreso.ec/rss.xml',                                   ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'extra',        name:'Diario Extra',    url:'https://www.extra.ec/feed/',                                       ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'metroec',      name:'Metro Ecuador',   url:'https://www.metroecuador.com.ec/feed/',                            ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'confirmado',   name:'Confirmado',      url:'https://confirmado.com.ec/feed/',                                  ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'ecuavisa',     name:'Ecuavisa',        url:'https://www.ecuavisa.com/rss.xml',                                 ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'tc',           name:'TC Televisión',   url:'https://www.tctelevision.com/feed',                                ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'teleamazonas', name:'Teleamazonas',    url:'https://www.teleamazonas.com/feed/',                               ciudad_base:'quito',     tipo:'rss', activo:true },
-  { id:'larepublica',  name:'La República EC', url:'https://www.larepublica.ec/feed/',                                 ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'elnorte',      name:'El Norte',        url:'https://www.elnorte.ec/feed/',                                     ciudad_base:'ibarra',    tipo:'rss', activo:true },
-  { id:'elmercurio',   name:'El Mercurio',     url:'https://elmercurio.com.ec/feed/',                                  ciudad_base:'cuenca',    tipo:'rss', activo:true },
+  { id:'eluniverso',   name:'El Universo',    url:'https://www.eluniverso.com/arc/outboundfeeds/rss/?outputType=xml', alt:[], gnews:gnews('eluniverso.com'),      ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'elcomercio',   name:'El Comercio',    url:'https://www.elcomercio.com/feed',                                  alt:[], gnews:gnews('elcomercio.com'),       ciudad_base:'quito',     tipo:'rss', activo:true },
+  { id:'primicias',    name:'Primicias',      url:'https://www.primicias.ec/feed/',                                   alt:[], gnews:gnews('primicias.ec'),         ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'lahora',       name:'La Hora',        url:'https://www.lahora.com.ec/feed/',                                  alt:[], gnews:gnews('lahora.com.ec'),        ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'expreso',      name:'Expreso',        url:'https://www.expreso.ec/rss.xml',                                   alt:['https://www.expreso.ec/feed/'], gnews:gnews('expreso.ec'), ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'extra',        name:'Diario Extra',   url:'https://www.extra.ec/feed/',                                       alt:[], gnews:gnews('extra.ec'),             ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'metroec',      name:'Metro Ecuador',  url:'https://www.metroecuador.com.ec/feed/',                            alt:[], gnews:gnews('metroecuador.com.ec'),  ciudad_base:null,        tipo:'rss', activo:true },
+  // Confirmado: el dominio confirmado.com.ec ya no existe (ENOTFOUND). Desactivado.
+  { id:'confirmado',   name:'Confirmado',     url:'https://confirmado.com.ec/feed/',                                  alt:[], gnews:null,                           ciudad_base:null,        tipo:'rss', activo:false },
+  { id:'ecuavisa',     name:'Ecuavisa',       url:'https://www.ecuavisa.com/rss.xml',                                 alt:[], gnews:gnews('ecuavisa.com'),         ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'tc',           name:'TC Televisión',  url:'https://www.tctelevision.com/feed',                                alt:[], gnews:gnews('tctelevision.com'),     ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'teleamazonas', name:'Teleamazonas',   url:'https://www.teleamazonas.com/feed/',                               alt:[], gnews:gnews('teleamazonas.com'),     ciudad_base:'quito',     tipo:'rss', activo:true },
+  { id:'larepublica',  name:'La República EC',url:'https://www.larepublica.ec/feed/',                                 alt:[], gnews:gnews('larepublica.ec'),       ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'elnorte',      name:'El Norte',       url:'https://www.elnorte.ec/feed/',                                     alt:[], gnews:gnews('elnorte.ec'),           ciudad_base:'ibarra',    tipo:'rss', activo:true },
+  { id:'elmercurio',   name:'El Mercurio',    url:'https://elmercurio.com.ec/feed/',                                  alt:[], gnews:gnews('elmercurio.com.ec'),    ciudad_base:'cuenca',    tipo:'rss', activo:true },
 ];
 
 // ─── KEYWORDS DE CIUDADES (más completo) ────────────────────────────────────

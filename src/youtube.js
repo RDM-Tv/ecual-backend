@@ -2,17 +2,10 @@
 // YouTube ofrece RSS oficial y gratuito para cualquier canal:
 // https://www.youtube.com/feeds/videos.xml?channel_id=UCXXXXXXXX
 
-const Parser = require('rss-parser');
+const axios = require('axios');
+const { fetchFeed } = require('./http');
 const { createClient } = require('@supabase/supabase-js');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
-
-const parser = new Parser({
-  timeout: 12000,
-  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EcuaNews-Bot/1.0)' },
-  customFields: {
-    item: [['media:group', 'mediaGroup']],
-  },
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -50,6 +43,7 @@ function makeId(str) {
 }
 
 function extractThumbnail(item) {
+  if (item.thumb) return item.thumb;
   // YouTube RSS incluye media:group > media:thumbnail
   if (item.mediaGroup?.['media:thumbnail']?.[0]?.$.url) {
     return item.mediaGroup['media:thumbnail'][0].$.url;
@@ -59,15 +53,39 @@ function extractThumbnail(item) {
   return videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
 }
 
+// Plan B: API oficial de YouTube (gratis, 10.000 unidades/día; este uso gasta ~1.250).
+// Lista de subidas de un canal = playlist "UU" + resto del ID del canal.
+async function itemsViaApi(channel) {
+  const { data } = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
+    timeout: 12000,
+    params: { part: 'snippet', maxResults: 8, playlistId: 'UU' + channel.id.slice(2), key: process.env.YOUTUBE_API_KEY },
+  });
+  return (data.items || []).map(i => ({
+    title: i.snippet.title,
+    link: `https://www.youtube.com/watch?v=${i.snippet.resourceId.videoId}`,
+    isoDate: i.snippet.publishedAt,
+    contentSnippet: i.snippet.description,
+    thumb: i.snippet.thumbnails?.high?.url || i.snippet.thumbnails?.medium?.url || null,
+  }));
+}
+
 async function processChannel(channel) {
   const result = { channel: channel.name, ok: false, count: 0 };
 
   try {
-    const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`;
     console.log(`  Fetching YouTube: ${channel.name}...`);
 
-    const feed = await parser.parseURL(url);
-    const items = (feed.items || []).slice(0, 8); // últimos 8 videos
+    // 1) RSS oficial (gratis). 2) Si falla y hay YOUTUBE_API_KEY, API oficial de YouTube.
+    let rawItems;
+    try {
+      const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`;
+      const feed = await fetchFeed(url, { Cookie: 'CONSENT=YES+1' });
+      rawItems = feed.items || [];
+    } catch (e) {
+      if (!process.env.YOUTUBE_API_KEY) throw e;
+      rawItems = await itemsViaApi(channel);
+    }
+    const items = rawItems.slice(0, 8); // últimos 8 videos
     const noticias = [];
 
     for (const item of items) {

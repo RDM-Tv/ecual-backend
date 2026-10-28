@@ -1,25 +1,12 @@
 // ─── FETCHER PRINCIPAL ────────────────────────────────────────────────────────
 require('dotenv').config();
-const Parser = require('rss-parser');
 const { createClient } = require('@supabase/supabase-js');
 const { FEEDS } = require('./feeds.config');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
 const { fetchAllYoutube } = require('./youtube');
 const { postToTelegram } = require('./telegram');
 
-const parser = new Parser({
-  timeout: 12000,
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (compatible; EcuaNews-Bot/1.0; +https://ecuanews.ec)',
-  },
-  customFields: {
-    item: [
-      ['media:content', 'mediaContent'],
-      ['media:thumbnail', 'mediaThumbnail'],
-      ['enclosure', 'enclosure'],
-    ],
-  },
-});
+const { fetchFeed } = require('./http');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -53,12 +40,24 @@ async function processFeed(feed) {
   const result = { feed: feed.id, ok: false, count: 0, error: null };
   try {
     console.log(`  Fetching: ${feed.name}...`);
-    const parsed = await parser.parseURL(feed.url);
+    // Orden: RSS propio → alternos → Google News. Se usa el primero que traiga noticias.
+    const fuentes = [feed.url, ...(feed.alt || []), feed.gnews].filter(Boolean);
+    let parsed = null, via = null, ultimoError = null;
+    for (const u of fuentes) {
+      try {
+        const p = await fetchFeed(u);
+        if ((p.items || []).length > 0) { parsed = p; via = u; break; }
+        ultimoError = new Error('feed sin noticias');
+      } catch (e) { ultimoError = e; }
+    }
+    if (!parsed) throw ultimoError || new Error('sin fuentes disponibles');
+    const viaGN = via === feed.gnews;
     const items = (parsed.items || []).slice(0, 20);
     const noticias = [];
 
     for (const item of items) {
-      const titulo = item.title?.trim();
+      let titulo = item.title?.trim();
+      if (viaGN && titulo) titulo = titulo.replace(/\s+-\s+[^-]+$/, '').trim(); // quita " - Fuente" de Google News
       if (!titulo || titulo.length < 10) continue;
 
       const link = item.link || item.guid || feed.url;
@@ -96,7 +95,7 @@ async function processFeed(feed) {
 
     result.ok = true;
     result.count = noticias.length;
-    console.log(`  ✅ ${feed.name}: ${noticias.length} noticias`);
+    console.log(`  ✅ ${feed.name}: ${noticias.length} noticias${viaGN ? ' (vía Google News)' : ''}`);
   } catch (err) {
     result.error = err.message;
     console.error(`  ❌ ${feed.name}: ${err.message}`);
