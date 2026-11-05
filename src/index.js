@@ -123,6 +123,12 @@ app.get('/api/rss', async (req, res) => {
 
 registrarRutas(app); // /api/push/*  (alertas de última hora)
 
+// Configuración pública para el frontend (cuentas de usuario).
+// La clave "anon" de Supabase es pública por diseño; la seguridad la dan las políticas RLS.
+app.get('/api/config', (req, res) => {
+  res.json({ ok: true, supabaseUrl: process.env.SUPABASE_URL || null, supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null });
+});
+
 // GET /api/health
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, version: '1.0.0', uptime: Math.floor(process.uptime()) });
