@@ -5,6 +5,7 @@ const { FEEDS } = require('./feeds.config');
 const { detectCity, detectCategory, cityLabel } = require('./classifier');
 const { fetchAllYoutube, YOUTUBE_CHANNELS } = require('./youtube');
 const { postToTelegram } = require('./telegram');
+const { enviarAlertasUrgentes } = require('./push');
 
 const { fetchFeed } = require('./http');
 
@@ -130,6 +131,7 @@ async function fetchAll() {
 
   // ── 3. Limpieza ─────────────────────────────────────────────────
   await postToTelegram().catch(e => console.error('Telegram:', e.message));
+  await enviarAlertasUrgentes().catch(e => console.error('Push:', e.message));
 
   await cleanOldNews();
 

@@ -6,6 +6,7 @@ const cors = require('cors');
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const { fetchAll } = require('./fetcher');
+const { registrarRutas } = require('./push');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -119,6 +120,8 @@ app.get('/api/rss', async (req, res) => {
 </channel></rss>`);
   } catch (e) { res.status(500).send(e.message); }
 });
+
+registrarRutas(app); // /api/push/*  (alertas de última hora)
 
 // GET /api/health
 app.get('/api/health', (req, res) => {
