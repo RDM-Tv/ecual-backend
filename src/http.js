@@ -16,6 +16,8 @@ const parser = new Parser({
       ['media:thumbnail', 'mediaThumbnail'],
       ['media:group', 'mediaGroup'],
       ['enclosure', 'enclosure'],
+      ['News:Image', 'bingImage'],
+      ['News:Source', 'bingSource'],
     ],
   },
 });
@@ -55,4 +57,31 @@ async function fetchFeed(url, extraHeaders = {}) {
   }
 }
 
-module.exports = { fetchFeed, BROWSER_UA };
+// ── Bing News como respaldo ──────────────────────────────────────────────────
+// A diferencia de Google News, los enlaces de Bing traen la dirección REAL de la nota
+// dentro del parámetro "url" (…/news/apiclick.aspx?…&url=https%3a%2f%2fsitio.com%2fnota).
+const bingUrl = dominio =>
+  `https://www.bing.com/news/search?q=${encodeURIComponent('site:' + dominio)}&qft=sortbydate%3D%221%22&format=RSS&setlang=es&cc=EC`;
+
+function bingReal(link) {
+  try {
+    const u = new URL(link);
+    if (u.hostname.endsWith('bing.com') && u.pathname.toLowerCase().includes('apiclick')) {
+      const r = u.searchParams.get('url');
+      if (r && /^https?:\/\//i.test(r)) return r;
+    }
+  } catch (e) { /* enlace no válido */ }
+  return link;
+}
+
+function bingImg(u) {
+  if (!u) return null;
+  try {
+    const p = new URL(u);
+    if (p.hostname.endsWith('bing.com') && p.pathname === '/th' && p.searchParams.get('id'))
+      return 'https://www.bing.com/th?id=' + encodeURIComponent(p.searchParams.get('id'));
+  } catch (e) { /* ignorar */ }
+  return u;
+}
+
+module.exports = { fetchFeed, BROWSER_UA, bingUrl, bingReal, bingImg };

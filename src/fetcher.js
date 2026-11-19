@@ -7,7 +7,8 @@ const { fetchAllYoutube, YOUTUBE_CHANNELS } = require('./youtube');
 const { postToTelegram } = require('./telegram');
 const { enviarAlertasUrgentes } = require('./push');
 
-const { fetchFeed } = require('./http');
+const { fetchFeed, bingUrl, bingReal, bingImg } = require('./http');
+const { registrarCiclo, limpiarAntiguos } = require('./stats');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -15,6 +16,7 @@ const supabase = createClient(
 );
 
 function extractImage(item) {
+  if (item.bingImage) { const v = typeof item.bingImage === 'string' ? item.bingImage : item.bingImage._; if (v) return bingImg(String(v).trim()); }
   if (item.mediaContent?.$.url) return item.mediaContent.$.url;
   if (item.mediaThumbnail?.$.url) return item.mediaThumbnail.$.url;
   if (item.enclosure?.url && item.enclosure.type?.startsWith('image')) return item.enclosure.url;
@@ -37,31 +39,54 @@ function makeId(feedId, link) {
   return Math.abs(hash).toString(36);
 }
 
+const ESTADO = new Map();   // estado más reciente de cada fuente (lo lee el panel de administración)
+let CICLO = 0;
+
+function hostDe(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
+
 async function processFeed(feed) {
-  const result = { feed: feed.id, ok: false, count: 0, error: null };
+  const prev = ESTADO.get(feed.id) || { fails: 0 };
+  const result = { feed: feed.id, name: feed.name, ok: false, count: 0, error: null, via: null };
+
+  // Si una fuente lleva 8 fallos seguidos, se reintenta solo 1 de cada 8 ciclos (cada 2 horas)
+  if (prev.fails >= 8 && CICLO % 8 !== 0) { result.skipped = true; result.error = prev.error; return result; }
+
+  const intentosFallidos = [];
   try {
     console.log(`  Fetching: ${feed.name}...`);
-    // Orden: RSS propio → alternos → Google News. Se usa el primero que traiga noticias.
-    const fuentes = [feed.url, ...(feed.alt || []), feed.gnews].filter(Boolean);
-    let parsed = null, via = null, ultimoError = null;
-    for (const u of fuentes) {
+    // Orden: RSS propio → alternos → Bing News (con la dirección real de cada nota)
+    const intentos = [
+      { via: 'directo', url: feed.url },
+      ...(feed.alt || []).map(u => ({ via: 'alterno', url: u })),
+      feed.bing ? { via: 'bing', url: bingUrl(feed.bing) } : null,
+    ].filter(t => t && t.url);
+
+    let parsed = null, via = null;
+    for (const t of intentos) {
       try {
-        const p = await fetchFeed(u);
-        if ((p.items || []).length > 0) { parsed = p; via = u; break; }
-        ultimoError = new Error('feed sin noticias');
-      } catch (e) { ultimoError = e; }
+        const p = await fetchFeed(t.url);
+        let items = p.items || [];
+        if (t.via === 'bing') {
+          items = items.map(it => ({ ...it, link: bingReal(it.link) }))
+                       .filter(it => hostDe(it.link).endsWith(feed.bing));   // solo notas del sitio pedido
+        }
+        if (items.length > 0) { parsed = { ...p, items }; via = t.via; break; }
+        intentosFallidos.push(`${t.via}: sin noticias`);
+      } catch (e) {
+        intentosFallidos.push(`${t.via}: ${String(e.message).split('\n')[0].slice(0, 110)}`);
+      }
     }
-    if (!parsed) throw ultimoError || new Error('sin fuentes disponibles');
-    const viaGN = via === feed.gnews;
+    if (!parsed) throw new Error(intentosFallidos.join(' | ') || 'sin fuentes disponibles');
+
     const items = (parsed.items || []).slice(0, 20);
     const noticias = [];
 
     for (const item of items) {
-      let titulo = item.title?.trim();
-      if (viaGN && titulo) titulo = titulo.replace(/\s+-\s+[^-]+$/, '').trim(); // quita " - Fuente" de Google News
+      const titulo = item.title?.trim();
       if (!titulo || titulo.length < 10) continue;
 
       const link = item.link || item.guid || feed.url;
+      if (/news\.google\.com/i.test(link)) continue;          // nunca guardar enlaces de redirección de Google
       const resumen = stripHtml(item.contentSnippet || item.summary || item.content || '').slice(0, 400);
       const pubDate = item.pubDate || item.isoDate;
       const ts = pubDate ? new Date(pubDate).getTime() : Date.now();
@@ -96,12 +121,23 @@ async function processFeed(feed) {
 
     result.ok = true;
     result.count = noticias.length;
-    console.log(`  ✅ ${feed.name}: ${noticias.length} noticias${viaGN ? ' (vía Google News)' : ''}`);
+    result.via = via;
+    ESTADO.set(feed.id, { fails: 0, ok: true, via, count: noticias.length, error: null, ts: Date.now(), lastOk: Date.now(), detalle: intentosFallidos });
+    console.log(`  ✅ ${feed.name}: ${noticias.length} noticias${via !== 'directo' ? ` (vía ${via})` : ''}`);
   } catch (err) {
     result.error = err.message;
+    ESTADO.set(feed.id, { fails: (prev.fails || 0) + 1, ok: false, via: null, count: 0, error: err.message, ts: Date.now(), lastOk: prev.lastOk || null, detalle: intentosFallidos });
     console.error(`  ❌ ${feed.name}: ${err.message}`);
   }
   return result;
+}
+
+// Estado actual de todas las fuentes (para el panel /admin.html)
+function getEstado() {
+  return FEEDS.filter(f => f.activo).map(f => ({
+    id: f.id, nombre: f.name, sitio: f.bing || '', url: f.url,
+    ...(ESTADO.get(f.id) || { ok: null, fails: 0, error: 'aún sin revisar' }),
+  }));
 }
 
 async function cleanOldNews() {
@@ -111,6 +147,7 @@ async function cleanOldNews() {
 }
 
 async function fetchAll() {
+  CICLO++;
   console.log(`\n🇪🇨 EcuaNews Fetcher — ${new Date().toLocaleString('es-EC')}`);
   console.log('━'.repeat(50));
 
@@ -125,6 +162,9 @@ async function fetchAll() {
     const res = await Promise.allSettled(chunk.map(processFeed));
     rssResults.push(...res.map(r => r.value || r.reason));
   }
+  // Historial por fuente para las estadísticas (no se guarda lo que se omitió por reintento espaciado)
+  registrarCiclo(rssResults.filter(r => r && r.feed && !r.skipped).map(r => ({ fuente_id: r.feed, nombre: r.name, ok: !!r.ok, via: r.via, items: r.count || 0, error: r.error ? String(r.error).slice(0, 300) : null }))).catch(() => {});
+  if (CICLO % 96 === 1) limpiarAntiguos().catch(() => {});
 
   // ── 2. YouTube RSS ───────────────────────────────────────────────
   const youtubeResult = await fetchAllYoutube();
@@ -150,4 +190,4 @@ if (require.main === module) {
   fetchAll().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
 }
 
-module.exports = { fetchAll };
+module.exports = { fetchAll, getEstado };

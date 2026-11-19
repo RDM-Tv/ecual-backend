@@ -5,8 +5,10 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
-const { fetchAll } = require('./fetcher');
+const { fetchAll, getEstado } = require('./fetcher');
 const { registrarRutas } = require('./push');
+const { registrarRutas: registrarStats } = require('./stats');
+const { registrarRutas: registrarShare } = require('./share');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +19,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 
@@ -28,6 +31,7 @@ app.get('/api/noticias', async (req, res) => {
     let query = supabase
       .from('noticias')
       .select('*', { count: 'exact' })
+      .not('url', 'ilike', '%news.google.com%')
       .order('publicado_en', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
@@ -122,6 +126,8 @@ app.get('/api/rss', async (req, res) => {
 });
 
 registrarRutas(app); // /api/push/*  (alertas de última hora)
+registrarShare(app);  // /n/:id  (página para compartir noticias con imagen y publicidad)
+registrarStats(app, getEstado); // /api/track y /api/admin/*  (estadísticas y panel)
 
 // Configuración pública para el frontend (cuentas de usuario).
 // La clave "anon" de Supabase es pública por diseño; la seguridad la dan las políticas RLS.

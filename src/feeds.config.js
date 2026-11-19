@@ -1,25 +1,37 @@
-// Cada fuente intenta: 1) su RSS propio, 2) los RSS alternos (alt) y 3) como red
-// de seguridad Google News filtrado por ese sitio (siempre disponible, no bloquea servidores).
-const gnews = dominio =>
-  `https://news.google.com/rss/search?q=site:${dominio}+when:2d&hl=es-419&gl=EC&ceid=EC:es-419`;
+// Cada fuente intenta, en orden:
+//   1) su RSS propio (url)   2) RSS alternos (alt)   3) Bing News filtrado por su sitio (bing: 'dominio.com')
+// Bing devuelve la dirección REAL de la nota (Google News no: sus enlaces se rompen).
+// Si una fuente falla seguido, el servidor la reintenta con menos frecuencia (ver fetcher.js).
+// El panel /admin.html muestra cuáles funcionan y por qué fallan.
 
 const FEEDS = [
   // ── NACIONALES ──────────────────────────────────────────────────────────────
-  { id:'eluniverso',   name:'El Universo',    url:'https://www.eluniverso.com/arc/outboundfeeds/rss/?outputType=xml', alt:[], gnews:gnews('eluniverso.com'),      ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'elcomercio',   name:'El Comercio',    url:'https://www.elcomercio.com/feed',                                  alt:[], gnews:gnews('elcomercio.com'),       ciudad_base:'quito',     tipo:'rss', activo:true },
-  { id:'primicias',    name:'Primicias',      url:'https://www.primicias.ec/feed/',                                   alt:[], gnews:gnews('primicias.ec'),         ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'lahora',       name:'La Hora',        url:'https://www.lahora.com.ec/feed/',                                  alt:[], gnews:gnews('lahora.com.ec'),        ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'expreso',      name:'Expreso',        url:'https://www.expreso.ec/rss.xml',                                   alt:['https://www.expreso.ec/feed/'], gnews:gnews('expreso.ec'), ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'extra',        name:'Diario Extra',   url:'https://www.extra.ec/feed/',                                       alt:[], gnews:gnews('extra.ec'),             ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'metroec',      name:'Metro Ecuador',  url:'https://www.metroecuador.com.ec/feed/',                            alt:[], gnews:gnews('metroecuador.com.ec'),  ciudad_base:null,        tipo:'rss', activo:true },
-  // Confirmado: el dominio confirmado.com.ec ya no existe (ENOTFOUND). Desactivado.
-  { id:'confirmado',   name:'Confirmado',     url:'https://confirmado.com.ec/feed/',                                  alt:[], gnews:null,                           ciudad_base:null,        tipo:'rss', activo:false },
-  { id:'ecuavisa',     name:'Ecuavisa',       url:'https://www.ecuavisa.com/rss.xml',                                 alt:[], gnews:gnews('ecuavisa.com'),         ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'tc',           name:'TC Televisión',  url:'https://www.tctelevision.com/feed',                                alt:[], gnews:gnews('tctelevision.com'),     ciudad_base:'guayaquil', tipo:'rss', activo:true },
-  { id:'teleamazonas', name:'Teleamazonas',   url:'https://www.teleamazonas.com/feed/',                               alt:[], gnews:gnews('teleamazonas.com'),     ciudad_base:'quito',     tipo:'rss', activo:true },
-  { id:'larepublica',  name:'La República EC',url:'https://www.larepublica.ec/feed/',                                 alt:[], gnews:gnews('larepublica.ec'),       ciudad_base:null,        tipo:'rss', activo:true },
-  { id:'elnorte',      name:'El Norte',       url:'https://www.elnorte.ec/feed/',                                     alt:[], gnews:gnews('elnorte.ec'),           ciudad_base:'ibarra',    tipo:'rss', activo:true },
-  { id:'elmercurio',   name:'El Mercurio',    url:'https://elmercurio.com.ec/feed/',                                  alt:[], gnews:gnews('elmercurio.com.ec'),    ciudad_base:'cuenca',    tipo:'rss', activo:true },
+  { id:'eluniverso',   name:'El Universo',    url:'https://www.eluniverso.com/arc/outboundfeeds/rss/?outputType=xml', alt:[], bing:'eluniverso.com',   ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'elcomercio',   name:'El Comercio',    url:'https://www.elcomercio.com/feed/',      alt:[], bing:'elcomercio.com',   ciudad_base:'quito',     tipo:'rss', activo:true },
+  { id:'primicias',    name:'Primicias',      url:'https://www.primicias.ec/feed/',        alt:['https://www.primicias.ec/arc/outboundfeeds/rss/?outputType=xml'], bing:'primicias.ec', ciudad_base:null, tipo:'rss', activo:true },
+  { id:'lahora',       name:'La Hora',        url:'https://www.lahora.com.ec/feed/',       alt:[], bing:'lahora.com.ec',    ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'expreso',      name:'Expreso',        url:'https://www.expreso.ec/rss.xml',        alt:['https://www.expreso.ec/arc/outboundfeeds/rss/?outputType=xml','https://www.expreso.ec/feed/'], bing:'expreso.ec', ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'extra',        name:'Diario Extra',   url:'https://www.extra.ec/feed/',            alt:['https://www.extra.ec/arc/outboundfeeds/rss/?outputType=xml'], bing:'extra.ec', ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'metroec',      name:'Metro Ecuador',  url:'https://www.metroecuador.com.ec/feed/', alt:['https://www.metroecuador.com.ec/rss.xml'], bing:'metroecuador.com.ec', ciudad_base:null, tipo:'rss', activo:true },
+  { id:'ecuavisa',     name:'Ecuavisa',       url:'https://www.ecuavisa.com/rss.xml',      alt:['https://www.ecuavisa.com/arc/outboundfeeds/rss/?outputType=xml','https://www.ecuavisa.com/feed/'], bing:'ecuavisa.com', ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'tc',           name:'TC Televisión',  url:'https://www.tctelevision.com/feed',     alt:[], bing:'tctelevision.com', ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'teleamazonas', name:'Teleamazonas',   url:'https://www.teleamazonas.com/feed/',    alt:['https://www.teleamazonas.com/arc/outboundfeeds/rss/?outputType=xml','https://www.teleamazonas.com/rss.xml'], bing:'teleamazonas.com', ciudad_base:'quito', tipo:'rss', activo:true },
+  { id:'eltelegrafo',  name:'El Telégrafo',   url:'https://www.eltelegrafo.com.ec/rss',    alt:['https://www.eltelegrafo.com.ec/feed','https://www.eltelegrafo.com.ec/rss.xml'], bing:'eltelegrafo.com.ec', ciudad_base:null, tipo:'rss', activo:true },
+  { id:'vistazo',      name:'Vistazo',        url:'https://www.vistazo.com/feed',          alt:['https://www.vistazo.com/rss.xml'], bing:'vistazo.com', ciudad_base:'guayaquil', tipo:'rss', activo:true },
+  { id:'larepublica',  name:'La República EC',url:'https://www.larepublica.ec/feed/',      alt:[], bing:'larepublica.ec',   ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'planv',        name:'Plan V',         url:'https://www.planv.com.ec/feed',         alt:[], bing:'planv.com.ec',     ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'gk',           name:'GK',             url:'https://gk.city/feed',                  alt:[], bing:'gk.city',          ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'codigovidrio', name:'Código Vidrio',  url:'https://www.codigovidrio.com/feed',     alt:[], bing:'codigovidrio.com', ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'ecuadorchequea', name:'Ecuador Chequea', url:'https://ecuadorchequea.com/feed/',   alt:[], bing:'ecuadorchequea.com', ciudad_base:null,      tipo:'rss', activo:true },
+  { id:'ecuadortimes', name:'Ecuador Times',  url:'https://www.ecuadortimes.net/feed/',    alt:[], bing:'ecuadortimes.net', ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'lanacion',     name:'La Nación',      url:'https://lanacion.com.ec/feed/',         alt:[], bing:'lanacion.com.ec',  ciudad_base:null,        tipo:'rss', activo:true },
+  // ── REGIONALES ──────────────────────────────────────────────────────────────
+  { id:'eldiario',     name:'El Diario (Manabí)', url:'https://www.eldiario.ec/feed/',     alt:[], bing:'eldiario.ec',      ciudad_base:'portoviejo', tipo:'rss', activo:true },
+  { id:'elnorte',      name:'El Norte',       url:'https://elnorte.ec/feed/',              alt:['https://www.elnorte.ec/feed/'], bing:'elnorte.ec', ciudad_base:'ibarra', tipo:'rss', activo:true },
+  { id:'elmercurio',   name:'El Mercurio',    url:'https://elmercurio.com.ec/feed/',       alt:[], bing:'elmercurio.com.ec', ciudad_base:'cuenca',   tipo:'rss', activo:true },
+  { id:'cronica',      name:'Crónica',        url:'https://cronica.com.ec/feed/',          alt:[], bing:'cronica.com.ec',   ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'lagaceta',     name:'La Gaceta',      url:'https://lagaceta.com.ec/feed/',         alt:[], bing:'lagaceta.com.ec',  ciudad_base:null,        tipo:'rss', activo:true },
+  { id:'ppelverdadero',name:'PP El Verdadero',url:'https://www.ppelverdadero.com.ec/feeds/posts/default', alt:[], bing:'ppelverdadero.com.ec', ciudad_base:null, tipo:'rss', activo:true },
 ];
 
 // ─── KEYWORDS DE CIUDADES (más completo) ────────────────────────────────────
