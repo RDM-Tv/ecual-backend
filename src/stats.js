@@ -14,6 +14,20 @@ const sa = process.env.SUPABASE_SERVICE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
   : null;
 
+// Qué tipo de clave se puso en SUPABASE_SERVICE_KEY (para avisar si se pegó la equivocada)
+function tipoDeClave(k) {
+  if (!k) return 'ninguna';
+  if (/^sb_publishable_/.test(k)) return 'publishable (clave pública: es la equivocada)';
+  if (/^sb_secret_/.test(k)) return 'secret (correcta)';
+  try {
+    const rol = JSON.parse(Buffer.from(k.split('.')[1], 'base64url').toString()).role;
+    return rol === 'service_role' ? 'service_role (correcta)' : rol === 'anon' ? 'anon (clave pública: es la equivocada)' : String(rol || 'desconocida');
+  } catch (e) { return 'no reconocida (¿pegaste la clave completa y en una sola línea?)'; }
+}
+const CLAVE_TIPO = tipoDeClave(process.env.SUPABASE_SERVICE_KEY || '');
+const CLAVE_MALA = /equivocada|no reconocida/.test(CLAVE_TIPO);
+if (process.env.SUPABASE_SERVICE_KEY) console.log('📊 Clave SUPABASE_SERVICE_KEY:', CLAVE_TIPO);
+
 const TIPOS = new Set(['visita', 'clic_noticia', 'clic_anuncio', 'vista_anuncio', 'compartir', 'landing', 'landing_original', 'landing_ecuanews', 'landing_anuncio']);
 const CLAVES = ['ref', 'nuevo', 'pwa', 'fuente', 'cat', 'ciudad', 'anuncio', 'formato', 'red', 'tema'];
 
@@ -105,13 +119,13 @@ function registrarRutas(app, getEstadoFuentes) {
   const dias = req => Math.min(90, Math.max(1, parseInt(req.query.dias, 10) || 30));
 
   app.get('/api/admin/ping', auth, (req, res) => {
-    res.json({ ok: true, estadisticas: !!sa, fuentes_memoria: getEstadoFuentes().length });
+    res.json({ ok: true, estadisticas: !!sa, clave: CLAVE_TIPO, clave_mala: CLAVE_MALA, fuentes_memoria: getEstadoFuentes().length });
   });
 
   app.get('/api/admin/resumen', auth, async (req, res) => {
     if (!sa) return res.json({ ok: false, error: 'sin-service-key' });
     const { data, error } = await sa.rpc('admin_resumen', { dias: dias(req) });
-    if (error) return res.json({ ok: false, error: error.message });
+    if (error) return res.json({ ok: false, error: /permission denied/i.test(error.message) ? 'clave-sin-permisos' : error.message, clave: CLAVE_TIPO, detalle: error.message });
     res.json({ ok: true, ...data });
   });
 
@@ -119,7 +133,7 @@ function registrarRutas(app, getEstadoFuentes) {
     let hist = null, errorDb = null;
     if (sa) {
       const { data, error } = await sa.rpc('admin_fuentes', { dias: dias(req) });
-      if (error) errorDb = error.message; else hist = data;
+      if (error) errorDb = /permission denied/i.test(error.message) ? 'clave-sin-permisos' : error.message; else hist = data;
     } else errorDb = 'sin-service-key';
     res.json({ ok: true, ahora: getEstadoFuentes(), historial: hist, error_db: errorDb });
   });

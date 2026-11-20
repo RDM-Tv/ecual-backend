@@ -9,6 +9,7 @@ const { enviarAlertasUrgentes } = require('./push');
 
 const { fetchFeed, bingUrl, bingReal, bingImg } = require('./http');
 const { registrarCiclo, limpiarAntiguos } = require('./stats');
+const { traerPorHtml } = require('./html');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -16,6 +17,7 @@ const supabase = createClient(
 );
 
 function extractImage(item) {
+  if (item.htmlImage) return item.htmlImage;
   if (item.bingImage) { const v = typeof item.bingImage === 'string' ? item.bingImage : item.bingImage._; if (v) return bingImg(String(v).trim()); }
   if (item.mediaContent?.$.url) return item.mediaContent.$.url;
   if (item.mediaThumbnail?.$.url) return item.mediaThumbnail.$.url;
@@ -59,16 +61,25 @@ async function processFeed(feed) {
       { via: 'directo', url: feed.url },
       ...(feed.alt || []).map(u => ({ via: 'alterno', url: u })),
       feed.bing ? { via: 'bing', url: bingUrl(feed.bing) } : null,
+      feed.html ? { via: 'html', url: feed.html.url } : null,      // sitios sin RSS: lee su portada
     ].filter(t => t && t.url);
 
     let parsed = null, via = null;
     for (const t of intentos) {
       try {
+        if (t.via === 'html') {
+          const h = await traerPorHtml(feed, supabase, makeId);
+          if (h.items.length > 0 || h.existentes > 0) { parsed = { items: h.items }; via = 'html'; break; }
+          intentosFallidos.push('html: sin noticias');
+          continue;
+        }
         const p = await fetchFeed(t.url);
         let items = p.items || [];
+        const total = items.length;
         if (t.via === 'bing') {
           items = items.map(it => ({ ...it, link: bingReal(it.link) }))
                        .filter(it => hostDe(it.link).endsWith(feed.bing));   // solo notas del sitio pedido
+          if (!items.length) { intentosFallidos.push(`bing: ${total} resultados, 0 del sitio ${feed.bing}`); continue; }
         }
         if (items.length > 0) { parsed = { ...p, items }; via = t.via; break; }
         intentosFallidos.push(`${t.via}: sin noticias`);
