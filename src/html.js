@@ -82,7 +82,7 @@ async function traerPorHtml(feed, supabase, makeId, maxNuevas = 12) {
     try { extra = await detalle(n.link, cfg.url); } catch (e) { /* se guarda solo con el titular */ }
     items.push({ title: (extra.title && extra.title.length > 15 ? extra.title : n.title), link: n.link, contentSnippet: extra.contentSnippet || '', pubDate: extra.pubDate || '', htmlImage: extra.htmlImage || null });
   }
-  return { items, existentes: lista.length - nuevas.length };
+  return { items, existentes: ids.filter(i => ya.has(i)).length, total: lista.length };
 }
 
-module.exports = { traerPorHtml, listar, meta };
+module.exports = { traerPorHtml, listar, meta, getHtml };

@@ -8,6 +8,8 @@
 // Privacidad: NO se guarda la IP ni datos personales; solo un identificador aleatorio anónimo.
 
 const crypto = require('crypto');
+const { fetchFeed } = require('./http');
+const { getHtml, listar } = require('./html');
 const { createClient } = require('@supabase/supabase-js');
 
 const sa = process.env.SUPABASE_SERVICE_KEY
@@ -136,6 +138,40 @@ function registrarRutas(app, getEstadoFuentes) {
       if (error) errorDb = /permission denied/i.test(error.message) ? 'clave-sin-permisos' : error.message; else hist = data;
     } else errorDb = 'sin-service-key';
     res.json({ ok: true, ahora: getEstadoFuentes(), historial: hist, error_db: errorDb });
+  });
+
+
+  // ── Probar una fuente nueva (RSS, RSS escondido en la página, o lectura de titulares) ──
+  app.get('/api/admin/probar', auth, async (req, res) => {
+    let url = String(req.query.url || '').trim();
+    if (!url) return res.json({ ok: false, intentos: ['Escribe la dirección del medio'] });
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const intentos = [];
+    const muestra = it => ({ titulo: String(it.title || '').slice(0, 140), link: it.link, fecha: it.pubDate || it.isoDate || '' });
+    const msg = e => String(e.message || e).split('\n')[0].slice(0, 120);
+    let host = '';
+    try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return res.json({ ok: false, intentos: ['Dirección no válida'] }); }
+    try {
+      const f = await fetchFeed(url);
+      if (f.items && f.items.length) return res.json({ ok: true, tipo: 'rss', url, host, total: f.items.length, muestra: f.items.slice(0, 5).map(muestra) });
+      intentos.push('Como RSS: sin noticias');
+    } catch (e) { intentos.push('Como RSS: ' + msg(e)); }
+    try {
+      const html = await getHtml(url);
+      const enlaces = [...html.matchAll(/<link[^>]+type=["']application\/(?:rss|atom)\+xml["'][^>]*>/gi)]
+        .map(m => (/href=["']([^"']+)/i.exec(m[0]) || [])[1]).filter(Boolean).map(h => { try { return new URL(h, url).href; } catch (e) { return null; } }).filter(Boolean);
+      for (const l of [...new Set(enlaces)].slice(0, 4)) {
+        try {
+          const f = await fetchFeed(l);
+          if (f.items && f.items.length) return res.json({ ok: true, tipo: 'rss-descubierto', url: l, host, total: f.items.length, muestra: f.items.slice(0, 5).map(muestra) });
+        } catch (e) { intentos.push('RSS declarado en la página (' + l + '): ' + msg(e)); }
+      }
+      if (!enlaces.length) intentos.push('La página no declara ningún RSS');
+      const lista = listar(html, url, host, null);
+      if (lista.length >= 3) return res.json({ ok: true, tipo: 'html', url, host, total: lista.length, muestra: lista.slice(0, 5).map(x => ({ titulo: x.title.slice(0, 140), link: x.link })) });
+      intentos.push('Lectura de titulares: solo ' + lista.length + ' encontrados');
+    } catch (e) { intentos.push('Al abrir la página: ' + msg(e)); }
+    res.json({ ok: false, url, host, intentos });
   });
 
   app.get('/api/admin/exportar', auth, async (req, res) => {

@@ -64,12 +64,12 @@ async function processFeed(feed) {
       feed.html ? { via: 'html', url: feed.html.url } : null,      // sitios sin RSS: lee su portada
     ].filter(t => t && t.url);
 
-    let parsed = null, via = null;
+    let parsed = null, via = null, infoHtml = null;
     for (const t of intentos) {
       try {
         if (t.via === 'html') {
           const h = await traerPorHtml(feed, supabase, makeId);
-          if (h.items.length > 0 || h.existentes > 0) { parsed = { items: h.items }; via = 'html'; break; }
+          if (h.items.length > 0 || h.existentes > 0) { parsed = { items: h.items }; via = 'html'; infoHtml = `lectura de portada: ${h.total} titulares · ${h.items.length} nuevos · ${h.existentes} ya guardados`; break; }
           intentosFallidos.push('html: sin noticias');
           continue;
         }
@@ -100,7 +100,9 @@ async function processFeed(feed) {
       if (/news\.google\.com/i.test(link)) continue;          // nunca guardar enlaces de redirección de Google
       const resumen = stripHtml(item.contentSnippet || item.summary || item.content || '').slice(0, 400);
       const pubDate = item.pubDate || item.isoDate;
-      const ts = pubDate ? new Date(pubDate).getTime() : Date.now();
+      let ts = pubDate ? new Date(pubDate).getTime() : Date.now();
+      if (!Number.isFinite(ts)) ts = Date.now();                       // fecha ilegible → ahora
+      if (Date.now() - ts > 7 * 24 * 3600 * 1000) continue;            // más de 7 días: se borraría en la limpieza
       const imgUrl = extractImage(item);
 
       const ciudad = detectCity(titulo, resumen, feed.ciudad_base);
@@ -133,7 +135,7 @@ async function processFeed(feed) {
     result.ok = true;
     result.count = noticias.length;
     result.via = via;
-    ESTADO.set(feed.id, { fails: 0, ok: true, via, count: noticias.length, error: null, ts: Date.now(), lastOk: Date.now(), detalle: intentosFallidos });
+    ESTADO.set(feed.id, { fails: 0, ok: true, via, count: noticias.length, leidas: items.length, info: infoHtml, error: null, ts: Date.now(), lastOk: Date.now(), detalle: intentosFallidos });
     console.log(`  ✅ ${feed.name}: ${noticias.length} noticias${via !== 'directo' ? ` (vía ${via})` : ''}`);
   } catch (err) {
     result.error = err.message;
