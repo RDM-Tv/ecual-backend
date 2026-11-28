@@ -24,23 +24,38 @@ app.use(cors());
 app.use(express.json());
 
 // GET /api/noticias
+// Consulta base de noticias (sin enlaces de redirección de Google)
+const baseNoticias = (categoria) => {
+  let q = supabase.from('noticias').select('*', { count: 'exact' }).not('url', 'ilike', '%news.google.com%');
+  if (categoria && categoria !== 'todas') q = q.eq('categoria', categoria);
+  return q;
+};
+
+// Al elegir una ciudad: PRIMERO las noticias de esa ciudad (de la más reciente a la más antigua)
+// y, después, las nacionales. Así las notas locales no quedan enterradas bajo las del país.
+async function pagina_ciudad(ciudad, categoria, offset, limit) {
+  const L = await baseNoticias(categoria).eq('ciudad', ciudad).order('publicado_en', { ascending: false }).range(offset, offset + limit - 1);
+  if (L.error) throw new Error(L.error.message);
+  const locales = L.count || 0;
+  let filas = L.data || [];
+  const N = await baseNoticias(categoria).eq('ciudad', 'nacional').order('publicado_en', { ascending: false })
+    .range(filas.length < limit ? Math.max(0, offset - locales) : 0, filas.length < limit ? Math.max(0, offset - locales) + (limit - filas.length) - 1 : 0);
+  if (N.error) throw new Error(N.error.message);
+  if (filas.length < limit) filas = filas.concat(N.data || []);
+  return { filas, total: locales + (N.count || 0), locales };
+}
+
 app.get('/api/noticias', async (req, res) => {
   try {
     const { ciudad, categoria, q, limit = 50, offset = 0 } = req.query;
-
-    let query = supabase
-      .from('noticias')
-      .select('*', { count: 'exact' })
-      .not('url', 'ilike', '%news.google.com%')
-      .order('publicado_en', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    const lim = Math.min(200, Math.max(1, parseInt(limit) || 50)), off = Math.max(0, parseInt(offset) || 0);
 
     if (ciudad && ciudad !== 'todas' && !q) {
-      query = query.or(`ciudad.eq.${ciudad},ciudad.eq.nacional`);
+      const r = await pagina_ciudad(ciudad, categoria, off, lim);
+      return res.json({ ok: true, total: r.total, locales: r.locales, noticias: r.filas, actualizado: new Date().toISOString() });
     }
-    if (categoria && categoria !== 'todas') {
-      query = query.eq('categoria', categoria);
-    }
+
+    let query = baseNoticias(categoria).order('publicado_en', { ascending: false }).range(off, off + lim - 1);
     if (q) {
       const qc = q.trim();
       query = query.or(
@@ -51,17 +66,13 @@ app.get('/api/noticias', async (req, res) => {
         `fuente_id.ilike.%${qc}%`
       );
     }
-
     const { data, error, count } = await query;
     if (error) return res.status(500).json({ error: error.message });
-
     res.json({ ok: true, total: count, noticias: data || [], actualizado: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
-
-// GET /api/noticias/:id
 app.get('/api/noticias/:id', async (req, res) => {
   const { data, error } = await supabase.from('noticias').select('*').eq('id', req.params.id).single();
   if (error) return res.status(404).json({ ok: false, error: 'No encontrada' });

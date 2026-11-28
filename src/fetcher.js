@@ -44,6 +44,32 @@ function makeId(feedId, link) {
 const ESTADO = new Map();   // estado más reciente de cada fuente (lo lee el panel de administración)
 let CICLO = 0;
 
+// Titulares escritos TODO EN MAYÚSCULAS → formato normal (conservando siglas y nombres de lugares)
+const SIGLAS = new Set(['cne','onu','iva','dea','fbi','ue','eeuu','ee.uu.','coe','gad','iess','msp','fifa','ecu','tv','pib','bce','mtop','ant','sri','cpccs','cidh','oea','ia','usd']);
+const PROPIOS = new Set(['manta','portoviejo','manabí','manabi','montecristi','jaramijó','jaramijo','rocafuerte','sucre','bahía','bahia','chone','jipijapa','guayaquil','quito','cuenca','ambato','loja','esmeraldas','machala','ibarra','ecuador','guayas','pichincha','azuay','los','ríos','rios','santa','elena','santo','domingo','tsáchilas','tsachilas','perú','peru','colombia','venezuela','estados','unidos','china','españa','argentina','chile','méxico','mexico','brasil','petroecuador','noboa','lasso','correa','correos','flor','arteaga','donald','trump','biden']);
+function normalizarTitulo(t) {
+  t = String(t || '').trim();
+  const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '');
+  if (letras.length < 12) return t;
+  const mayus = letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, '').length;
+  if (mayus / letras.length < 0.7) return t;                 // ya está en formato normal
+  const pal = t.toLowerCase().split(/(\s+)/).map(w => {
+    const k = w.replace(/[^a-záéíóúüñ.]/g, '');
+    if (SIGLAS.has(k)) return w.toUpperCase();
+    if (PROPIOS.has(k)) return w.charAt(0).toUpperCase() + w.slice(1);
+    return w;
+  }).join('');
+  return pal.charAt(0).toUpperCase() + pal.slice(1).replace(/([.!?¿¡]\s+)([a-záéíóúñ])/g, (m, a, b) => a + b.toUpperCase());
+}
+// Filtros por sección del sitio: ruta (solo esa) y excluirRuta (todo menos esa)
+function rutaOk(feed, link) {
+  let p = '';
+  try { p = new URL(link).pathname; } catch (e) { return true; }
+  if (feed.ruta && !p.startsWith(feed.ruta)) return false;
+  if (feed.excluirRuta && p.startsWith(feed.excluirRuta)) return false;
+  return true;
+}
+
 function hostDe(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
 
 async function processFeed(feed) {
@@ -60,7 +86,7 @@ async function processFeed(feed) {
     const intentos = [
       { via: 'directo', url: feed.url },
       ...(feed.alt || []).map(u => ({ via: 'alterno', url: u })),
-      feed.bing ? { via: 'bing', url: bingUrl(feed.bing) } : null,
+      feed.bing ? { via: 'bing', url: bingUrl(feed.bingQ || feed.bing) } : null,
       feed.html ? { via: 'html', url: feed.html.url } : null,      // sitios sin RSS: lee su portada
     ].filter(t => t && t.url);
 
@@ -93,11 +119,12 @@ async function processFeed(feed) {
     const noticias = [];
 
     for (const item of items) {
-      const titulo = item.title?.trim();
+      const titulo = normalizarTitulo(item.title?.trim());
       if (!titulo || titulo.length < 10) continue;
 
       const link = item.link || item.guid || feed.url;
       if (/news\.google\.com/i.test(link)) continue;          // nunca guardar enlaces de redirección de Google
+      if (!rutaOk(feed, link)) continue;                         // sección del sitio que no corresponde a esta fuente
       const resumen = stripHtml(item.contentSnippet || item.summary || item.content || '').slice(0, 400);
       const pubDate = item.pubDate || item.isoDate;
       let ts = pubDate ? new Date(pubDate).getTime() : Date.now();
@@ -203,4 +230,4 @@ if (require.main === module) {
   fetchAll().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
 }
 
-module.exports = { fetchAll, getEstado };
+module.exports = { fetchAll, getEstado, normalizarTitulo, rutaOk };
